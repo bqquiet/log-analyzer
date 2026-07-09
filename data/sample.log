@@ -1,0 +1,20 @@
+2026-07-08 09:12:01 INFO  Server started on port 8080
+2026-07-08 09:12:15 INFO  User "admin" logged in
+2026-07-08 09:14:03 ERROR Connection error while reaching database host db-01
+2026-07-08 09:15:44 WARNING Disk usage at 85% on volume /var
+2026-07-08 09:17:22 INFO  Scheduled backup completed successfully
+2026-07-08 09:20:11 DENIED Access Denied for user "guest" on resource /admin/panel
+2026-07-08 09:21:09 INFO  User "guest" logged out
+2026-07-08 09:23:47 FAILED Authentication failure for user "root" from 192.168.1.44
+2026-07-08 09:25:00 INFO  Cron job "cleanup_tmp" finished
+2026-07-08 09:26:12 ERROR Timeout error connecting to service payment-gateway
+2026-07-08 09:28:33 WARNING Memory usage above threshold (92%)
+2026-07-08 09:30:05 DENIED Access Denied for IP 10.0.0.15 on port 22
+2026-07-08 09:32:41 INFO  New session created for user "operator"
+2026-07-08 09:35:19 FAILED Login failed for user "test" — invalid password
+2026-07-08 09:37:58 ERROR Null pointer error in module report_generator
+2026-07-08 09:40:22 INFO  Configuration reloaded
+2026-07-08 09:42:10 WARNING Deprecated API endpoint /v1/status used
+2026-07-08 09:44:55 DENIED Access Denied: insufficient permissions for user "guest"
+2026-07-08 09:46:30 INFO  Health check passed
+2026-07-08 09:48:12 ERROR File not found error: /data/reports/2026-07.csv
