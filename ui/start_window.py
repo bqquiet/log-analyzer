@@ -2,34 +2,52 @@ from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit,
     QCheckBox, QLabel, QFileDialog, QMessageBox, QGroupBox
 )
+from PyQt5.QtCore import Qt
+from ui.styles import STYLE
 
 
 class StartWindow(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Аналізатор лог-файлів — вибір файлу")
-        self.resize(480, 260)
+        self.resize(520, 340)
+        self.setAcceptDrops(True)
 
         self.file_path = None
         self.main_window = None
 
         self.build_ui()
+        self.setStyleSheet(STYLE)
 
     def build_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
 
-        layout.addWidget(QLabel("1. Оберіть лог-файл (.log / .txt):"))
+        title = QLabel("1. Оберіть лог-файл")
+        title.setObjectName("sectionTitle")
+        layout.addWidget(title)
+
+        self.drop_label = QLabel("Перетягніть .log / .txt файл сюди\nабо натисніть кнопку нижче")
+        self.drop_label.setObjectName("dropZone")
+        self.drop_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.drop_label)
 
         file_row = QHBoxLayout()
         self.file_field = QLineEdit()
         self.file_field.setReadOnly(True)
         browse_button = QPushButton("Обрати файл...")
+        browse_button.setObjectName("secondaryButton")
         browse_button.clicked.connect(self.choose_file)
         file_row.addWidget(self.file_field)
         file_row.addWidget(browse_button)
         layout.addLayout(file_row)
 
-        pattern_box = QGroupBox("2. Патерни пошуку")
+        pattern_title = QLabel("2. Патерни пошуку")
+        pattern_title.setObjectName("sectionTitle")
+        layout.addWidget(pattern_title)
+
+        pattern_box = QGroupBox()
         pattern_layout = QVBoxLayout()
 
         self.check_error = QCheckBox("Error")
@@ -55,6 +73,19 @@ class StartWindow(QDialog):
         start_button.clicked.connect(self.start_clicked)
         layout.addWidget(start_button)
 
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            path = event.mimeData().urls()[0].toLocalFile()
+            if path.lower().endswith((".log", ".txt")):
+                event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        path = event.mimeData().urls()[0].toLocalFile()
+        self.file_path = path
+        self.file_field.setText(path)
+        file_name = path.replace(chr(92), "/").split("/")[-1]
+        self.drop_label.setText(f"Обрано: {file_name}")
+
     def choose_file(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Оберіть лог-файл", "", "Log/Text files (*.log *.txt);;Усі файли (*)"
@@ -62,6 +93,8 @@ class StartWindow(QDialog):
         if path:
             self.file_path = path
             self.file_field.setText(path)
+            file_name = path.replace(chr(92), "/").split("/")[-1]
+            self.drop_label.setText(f"Обрано: {file_name}")
 
     def get_patterns(self):
         patterns = {}

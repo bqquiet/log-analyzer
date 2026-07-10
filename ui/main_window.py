@@ -1,18 +1,27 @@
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
-    QTableWidgetItem, QPushButton, QLabel, QFileDialog, QMessageBox
+    QTableWidgetItem, QPushButton, QLabel, QFileDialog, QMessageBox, QFrame
 )
+from PyQt5.QtGui import QColor
 
 from models.log_analyzer import LogAnalyzer
 from storage.file_storage import FileStorage
 from ui.chart_widget import StatsChartWidget
+from ui.styles import STYLE
+
+ROW_COLORS = {
+    "Error": QColor("#fdecea"),
+    "Denied": QColor("#fff8e1"),
+    "Failed": QColor("#e3f2fd"),
+    "Warning": QColor("#e8f5e9"),
+}
 
 
 class MainWindow(QMainWindow):
     def __init__(self, file_path, patterns):
         super().__init__()
         self.setWindowTitle("Аналізатор лог-файлів — результати")
-        self.resize(760, 560)
+        self.resize(800, 620)
 
         self.analyzer = LogAnalyzer()
         self.analyzer.load_file(file_path)
@@ -22,26 +31,38 @@ class MainWindow(QMainWindow):
         self.fill_table()
         self.update_stats_label()
         self.chart.set_data(self.analyzer.get_statistics())
+        self.setStyleSheet(STYLE)
 
     def build_ui(self):
         central = QWidget()
         layout = QVBoxLayout(central)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
 
         self.stats_label = QLabel()
+        self.stats_label.setObjectName("statsLabel")
         layout.addWidget(self.stats_label)
 
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(["Рядок", "Категорія", "Текст"])
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setSortingEnabled(True)
+        self.table.verticalHeader().setVisible(False)
         layout.addWidget(self.table)
 
+        chart_card = QFrame()
+        chart_card.setObjectName("chartCard")
+        chart_layout = QVBoxLayout(chart_card)
+        chart_layout.setContentsMargins(12, 12, 12, 12)
         self.chart = StatsChartWidget()
-        layout.addWidget(self.chart)
+        chart_layout.addWidget(self.chart)
+        layout.addWidget(chart_card)
 
         button_row = QHBoxLayout()
         save_json_button = QPushButton("Зберегти звіт (JSON)")
         save_json_button.clicked.connect(self.save_report_json)
         save_txt_button = QPushButton("Зберегти звіт (TXT)")
+        save_txt_button.setObjectName("secondaryButton")
         save_txt_button.clicked.connect(self.save_report_txt)
         button_row.addWidget(save_json_button)
         button_row.addWidget(save_txt_button)
@@ -51,11 +72,26 @@ class MainWindow(QMainWindow):
 
     def fill_table(self):
         entries = self.analyzer.get_entries()
+        self.table.setSortingEnabled(False)
         self.table.setRowCount(len(entries))
+
         for row, entry in enumerate(entries):
-            self.table.setItem(row, 0, QTableWidgetItem(str(entry.line_number)))
-            self.table.setItem(row, 1, QTableWidgetItem(entry.level))
-            self.table.setItem(row, 2, QTableWidgetItem(entry.message))
+            line_item = QTableWidgetItem()
+            line_item.setData(0, entry.line_number)
+            level_item = QTableWidgetItem(entry.level)
+            text_item = QTableWidgetItem(entry.message)
+
+            color = ROW_COLORS.get(entry.level)
+            if color:
+                line_item.setBackground(color)
+                level_item.setBackground(color)
+                text_item.setBackground(color)
+
+            self.table.setItem(row, 0, line_item)
+            self.table.setItem(row, 1, level_item)
+            self.table.setItem(row, 2, text_item)
+
+        self.table.setSortingEnabled(True)
 
     def update_stats_label(self):
         stats = self.analyzer.get_statistics()
