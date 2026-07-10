@@ -1,8 +1,10 @@
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
-    QTableWidgetItem, QPushButton, QLabel, QFileDialog, QMessageBox, QFrame
+    QTableWidgetItem, QPushButton, QLabel, QFileDialog, QMessageBox,
+    QFrame, QSplitter, QMenu, QApplication
 )
 from PyQt5.QtGui import QColor
+from PyQt5.QtCore import Qt
 
 from models.log_analyzer import LogAnalyzer
 from storage.file_storage import FileStorage
@@ -21,7 +23,12 @@ class MainWindow(QMainWindow):
     def __init__(self, file_path, patterns):
         super().__init__()
         self.setWindowTitle("Аналізатор лог-файлів — результати")
-        self.resize(800, 620)
+        self.resize(920, 760)
+        self.setMinimumSize(700, 560)
+
+        self.start_window = None
+        self.active_filter = None
+        self.filter_buttons = {}
 
         self.analyzer = LogAnalyzer()
         self.analyzer.load_file(file_path)
@@ -35,40 +42,86 @@ class MainWindow(QMainWindow):
 
     def build_ui(self):
         central = QWidget()
-        layout = QVBoxLayout(central)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(14)
+        outer_layout = QVBoxLayout(central)
+        outer_layout.setContentsMargins(24, 24, 24, 24)
+        outer_layout.setSpacing(16)
 
+        top_row = QHBoxLayout()
         self.stats_label = QLabel()
         self.stats_label.setObjectName("statsLabel")
-        layout.addWidget(self.stats_label)
+        top_row.addWidget(self.stats_label, stretch=1)
+
+        new_analysis_button = QPushButton("Новий аналіз")
+        new_analysis_button.setObjectName("ghostButton")
+        new_analysis_button.clicked.connect(self.start_new_analysis)
+        top_row.addWidget(new_analysis_button)
+        outer_layout.addLayout(top_row)
+
+        table_card = self.make_card("Знайдені записи")
+        table_card_layout = table_card.layout()
+
+        filter_row = QHBoxLayout()
+        filter_row.setSpacing(8)
+        filter_row.addWidget(QLabel("Фільтр:"))
+        for category in self.analyzer.get_statistics().keys():
+            button = QPushButton(category)
+            button.setObjectName("filterButton")
+            button.setCheckable(True)
+            button.clicked.connect(lambda checked, c=category: self.toggle_filter(c))
+            self.filter_buttons[category] = button
+            filter_row.addWidget(button)
+        filter_row.addStretch()
+        table_card_layout.addLayout(filter_row)
 
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(["Рядок", "Категорія", "Текст"])
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSortingEnabled(True)
         self.table.verticalHeader().setVisible(False)
-        layout.addWidget(self.table)
+        self.table.verticalHeader().setDefaultSectionSize(32)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self.show_table_context_menu)
+        table_card_layout.addWidget(self.table)
 
-        chart_card = QFrame()
-        chart_card.setObjectName("chartCard")
-        chart_layout = QVBoxLayout(chart_card)
-        chart_layout.setContentsMargins(12, 12, 12, 12)
+        chart_card = self.make_card("Статистика за категоріями")
+        chart_card_layout = chart_card.layout()
         self.chart = StatsChartWidget()
-        chart_layout.addWidget(self.chart)
-        layout.addWidget(chart_card)
+        chart_card_layout.addWidget(self.chart)
+
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(table_card)
+        splitter.addWidget(chart_card)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        splitter.setChildrenCollapsible(False)
+        outer_layout.addWidget(splitter, stretch=1)
 
         button_row = QHBoxLayout()
-        save_json_button = QPushButton("Зберегти звіт (JSON)")
-        save_json_button.clicked.connect(self.save_report_json)
+        button_row.setSpacing(10)
+        button_row.addStretch()
         save_txt_button = QPushButton("Зберегти звіт (TXT)")
         save_txt_button.setObjectName("secondaryButton")
         save_txt_button.clicked.connect(self.save_report_txt)
-        button_row.addWidget(save_json_button)
+        save_json_button = QPushButton("Зберегти звіт (JSON)")
+        save_json_button.clicked.connect(self.save_report_json)
         button_row.addWidget(save_txt_button)
-        layout.addLayout(button_row)
+        button_row.addWidget(save_json_button)
+        outer_layout.addLayout(button_row)
 
         self.setCentralWidget(central)
+
+    def make_card(self, title_text):
+        card = QFrame()
+        card.setObjectName("card")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        title = QLabel(title_text)
+        title.setObjectName("cardTitle")
+        layout.addWidget(title)
+
+        return card
 
     def fill_table(self):
         entries = self.analyzer.get_entries()
@@ -92,6 +145,50 @@ class MainWindow(QMainWindow):
             self.table.setItem(row, 2, text_item)
 
         self.table.setSortingEnabled(True)
+
+    def toggle_filter(self, category):
+        if self.active_filter == category:
+            self.active_filter = None
+        else:
+            self.active_filter = category
+
+        for name, button in self.filter_buttons.items():
+            button.setChecked(name == self.active_filter)
+
+        self.apply_filter()
+
+    def apply_filter(self):
+        for row in range(self.table.rowCount()):
+            level_item = self.table.item(row, 1)
+            if level_item is None:
+                continue
+            if self.active_filter is None or level_item.text() == self.active_filter:
+                self.table.setRowHidden(row, False)
+            else:
+                self.table.setRowHidden(row, True)
+
+    def show_table_context_menu(self, position):
+        row = self.table.rowAt(position.y())
+        if row < 0:
+            return
+
+        menu = QMenu(self)
+        copy_action = menu.addAction("Копіювати рядок")
+        action = menu.exec_(self.table.viewport().mapToGlobal(position))
+
+        if action == copy_action:
+            values = []
+            for column in range(self.table.columnCount()):
+                item = self.table.item(row, column)
+                values.append(item.text() if item else "")
+            QApplication.clipboard().setText("  |  ".join(values))
+
+    def start_new_analysis(self):
+        from ui.start_window import StartWindow
+
+        self.start_window = StartWindow()
+        self.start_window.show()
+        self.close()
 
     def update_stats_label(self):
         stats = self.analyzer.get_statistics()
