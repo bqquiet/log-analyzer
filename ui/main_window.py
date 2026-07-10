@@ -1,14 +1,15 @@
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QPushButton, QLabel, QFileDialog, QMessageBox,
-    QFrame, QSplitter, QMenu, QApplication
+    QFrame, QSplitter, QMenu, QApplication, QAbstractItemView
 )
 from PyQt5.QtGui import QColor
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
 
 from models.log_analyzer import LogAnalyzer
 from storage.file_storage import FileStorage
 from ui.chart_widget import StatsChartWidget
+from ui.copy_button import CopyButton
 from ui.styles import STYLE
 
 ROW_COLORS = {
@@ -29,6 +30,7 @@ class MainWindow(QMainWindow):
         self.start_window = None
         self.active_filter = None
         self.filter_buttons = {}
+        self.hover_row = -1
 
         self.analyzer = LogAnalyzer()
         self.analyzer.load_file(file_path)
@@ -81,7 +83,17 @@ class MainWindow(QMainWindow):
         self.table.verticalHeader().setDefaultSectionSize(32)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.show_table_context_menu)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setMouseTracking(True)
+        self.table.viewport().setMouseTracking(True)
+        self.table.cellEntered.connect(self.on_cell_entered)
+        self.table.viewport().installEventFilter(self)
         table_card_layout.addWidget(self.table)
+
+        self.hover_copy_button = CopyButton(self.table.viewport())
+        self.hover_copy_button.setToolTip("Копіювати рядок")
+        self.hover_copy_button.hide()
+        self.hover_copy_button.clicked.connect(self.copy_hover_row)
 
         chart_card = self.make_card("Статистика за категоріями")
         chart_card_layout = chart_card.layout()
@@ -167,6 +179,40 @@ class MainWindow(QMainWindow):
             else:
                 self.table.setRowHidden(row, True)
 
+    def on_cell_entered(self, row, column):
+        if self.table.isRowHidden(row):
+            self.hover_copy_button.hide()
+            return
+
+        self.hover_row = row
+        last_column = self.table.columnCount() - 1
+        rect = self.table.visualRect(self.table.model().index(row, last_column))
+
+        button_size = 30
+        x = rect.right() - button_size - 8
+        y = rect.top() + (rect.height() - button_size) // 2
+
+        self.hover_copy_button.move(x, y)
+        self.hover_copy_button.show()
+        self.hover_copy_button.raise_()
+
+    def eventFilter(self, source, event):
+        if source is self.table.viewport() and event.type() == QEvent.Leave:
+            self.hover_copy_button.hide()
+        return super().eventFilter(source, event)
+
+    def copy_hover_row(self):
+        if self.hover_row < 0:
+            return
+        self.copy_row_to_clipboard(self.hover_row)
+
+    def copy_row_to_clipboard(self, row):
+        values = []
+        for column in range(self.table.columnCount()):
+            item = self.table.item(row, column)
+            values.append(item.text() if item else "")
+        QApplication.clipboard().setText("  |  ".join(values))
+
     def show_table_context_menu(self, position):
         row = self.table.rowAt(position.y())
         if row < 0:
@@ -177,11 +223,7 @@ class MainWindow(QMainWindow):
         action = menu.exec_(self.table.viewport().mapToGlobal(position))
 
         if action == copy_action:
-            values = []
-            for column in range(self.table.columnCount()):
-                item = self.table.item(row, column)
-                values.append(item.text() if item else "")
-            QApplication.clipboard().setText("  |  ".join(values))
+            self.copy_row_to_clipboard(row)
 
     def start_new_analysis(self):
         from ui.start_window import StartWindow
