@@ -1,16 +1,19 @@
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit,
-    QCheckBox, QLabel, QFileDialog, QMessageBox, QGroupBox
+    QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLineEdit,
+    QCheckBox, QLabel, QFileDialog, QMessageBox, QFrame
 )
+from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 from ui.styles import STYLE
+from ui.colors import get_category_color
 
 
 class StartWindow(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Аналізатор лог-файлів — вибір файлу")
-        self.resize(520, 340)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        self.resize(520, 420)
         self.setAcceptDrops(True)
 
         self.file_path = None
@@ -21,14 +24,14 @@ class StartWindow(QDialog):
 
     def build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(14)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
 
         title = QLabel("1. Оберіть лог-файл")
         title.setObjectName("sectionTitle")
         layout.addWidget(title)
 
-        self.drop_label = QLabel("Перетягніть .log / .txt файл сюди\nабо натисніть кнопку нижче")
+        self.drop_label = QLabel("📂  Перетягніть .log / .txt файл сюди\nабо натисніть кнопку нижче")
         self.drop_label.setObjectName("dropZone")
         self.drop_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.drop_label)
@@ -36,6 +39,7 @@ class StartWindow(QDialog):
         file_row = QHBoxLayout()
         self.file_field = QLineEdit()
         self.file_field.setReadOnly(True)
+        self.file_field.setPlaceholderText("Файл не обрано")
         browse_button = QPushButton("Обрати файл...")
         browse_button.setObjectName("secondaryButton")
         browse_button.clicked.connect(self.choose_file)
@@ -47,31 +51,60 @@ class StartWindow(QDialog):
         pattern_title.setObjectName("sectionTitle")
         layout.addWidget(pattern_title)
 
-        pattern_box = QGroupBox()
-        pattern_layout = QVBoxLayout()
+        pattern_card = QFrame()
+        pattern_card.setObjectName("card")
+        pattern_layout = QVBoxLayout(pattern_card)
+        pattern_layout.setContentsMargins(18, 16, 18, 18)
+        pattern_layout.setSpacing(14)
 
-        self.check_error = QCheckBox("Error")
-        self.check_denied = QCheckBox("Denied")
-        self.check_failed = QCheckBox("Failed")
-        self.check_warning = QCheckBox("Warning")
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(20)
+        grid.setVerticalSpacing(10)
 
-        for box in (self.check_error, self.check_denied, self.check_failed, self.check_warning):
-            box.setChecked(True)
-            pattern_layout.addWidget(box)
+        self.check_error = self.make_category_checkbox("Error")
+        self.check_denied = self.make_category_checkbox("Denied")
+        self.check_failed = self.make_category_checkbox("Failed")
+        self.check_warning = self.make_category_checkbox("Warning")
 
-        custom_row = QHBoxLayout()
-        custom_row.addWidget(QLabel("Власний шаблон:"))
+        grid.addWidget(self.check_error, 0, 0)
+        grid.addWidget(self.check_denied, 0, 1)
+        grid.addWidget(self.check_failed, 1, 0)
+        grid.addWidget(self.check_warning, 1, 1)
+        pattern_layout.addLayout(grid)
+
+        divider = QFrame()
+        divider.setFrameShape(QFrame.HLine)
+        divider.setStyleSheet("color: #eceff1;")
+        pattern_layout.addWidget(divider)
+
+        custom_label = QLabel("Власний регулярний вираз (необов'язково)")
+        custom_label.setStyleSheet("font-weight: 600; font-size: 12px;")
+        pattern_layout.addWidget(custom_label)
+
         self.custom_field = QLineEdit()
         self.custom_field.setPlaceholderText("напр. timeout|refused")
-        custom_row.addWidget(self.custom_field)
-        pattern_layout.addLayout(custom_row)
+        self.custom_field.setFont(QFont("Consolas", 10))
+        pattern_layout.addWidget(self.custom_field)
 
-        pattern_box.setLayout(pattern_layout)
-        layout.addWidget(pattern_box)
+        layout.addWidget(pattern_card)
 
         start_button = QPushButton("Аналізувати")
         start_button.clicked.connect(self.start_clicked)
         layout.addWidget(start_button)
+
+    def make_category_checkbox(self, category):
+        colors = get_category_color(category)
+        checkbox = QCheckBox(category)
+        checkbox.setChecked(True)
+        checkbox.setStyleSheet(f"""
+            QCheckBox {{
+                color: {colors['text']};
+                font-weight: 600;
+                font-size: 13px;
+                padding: 4px;
+            }}
+        """)
+        return checkbox
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -84,7 +117,7 @@ class StartWindow(QDialog):
         self.file_path = path
         self.file_field.setText(path)
         file_name = path.replace(chr(92), "/").split("/")[-1]
-        self.drop_label.setText(f"Обрано: {file_name}")
+        self.drop_label.setText(f"✅  Обрано: {file_name}")
 
     def choose_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -94,7 +127,7 @@ class StartWindow(QDialog):
             self.file_path = path
             self.file_field.setText(path)
             file_name = path.replace(chr(92), "/").split("/")[-1]
-            self.drop_label.setText(f"Обрано: {file_name}")
+            self.drop_label.setText(f"✅  Обрано: {file_name}")
 
     def get_patterns(self):
         patterns = {}
