@@ -90,26 +90,6 @@ QPushButton#ghostButton:hover {
     color: #2c3e50;
 }
 
-QPushButton#filterButton {
-    background-color: #ffffff;
-    color: #607d8b;
-    border: 1px solid #dde3e8;
-    border-radius: 14px;
-    padding: 6px 14px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-QPushButton#filterButton:hover {
-    background-color: #f4f6f8;
-}
-
-QPushButton#filterButton:checked {
-    background-color: #2c3e50;
-    color: white;
-    border: 1px solid #2c3e50;
-}
-
 QLineEdit {
     border: 1px solid #dde3e8;
     border-radius: 6px;
@@ -125,7 +105,8 @@ QCheckBox {
 
 QTableWidget {
     background-color: white;
-    border: none;
+    border: 1px solid #eceff1;
+    border-radius: 10px;
     gridline-color: #f1f3f5;
     font-size: 13px;
 }
@@ -145,6 +126,14 @@ QHeaderView::section {
     padding: 10px;
     border: none;
     font-weight: bold;
+}
+
+QHeaderView::section:first {
+    border-top-left-radius: 10px;
+}
+
+QHeaderView::section:last {
+    border-top-right-radius: 10px;
 }
 
 QFrame#card {

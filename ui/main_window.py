@@ -11,9 +11,10 @@ from models.log_analyzer import LogAnalyzer
 from storage.file_storage import FileStorage
 from ui.chart_widget import StatsChartWidget
 from ui.copy_button import CopyButton
+from ui.colors import get_category_color
 from ui.styles import STYLE
 
-ROW_COLORS = {
+ROW_TINT = {
     "Error": QColor("#fdecea"),
     "Denied": QColor("#fff8e1"),
     "Failed": QColor("#e3f2fd"),
@@ -68,10 +69,10 @@ class MainWindow(QMainWindow):
         filter_row.addWidget(QLabel("Фільтр:"))
         for category in self.analyzer.get_statistics().keys():
             button = QPushButton(category)
-            button.setObjectName("filterButton")
             button.setCheckable(True)
             button.clicked.connect(lambda checked, c=category: self.toggle_filter(c))
             self.filter_buttons[category] = button
+            self.style_filter_button(button, category, active=False)
             filter_row.addWidget(button)
         filter_row.addStretch()
         table_card_layout.addLayout(filter_row)
@@ -131,6 +132,37 @@ class MainWindow(QMainWindow):
         self.toast_opacity.setOpacity(0)
         self.toast_label.hide()
 
+    def style_filter_button(self, button, category, active):
+        colors = get_category_color(category)
+        if active:
+            style = f"""
+                QPushButton {{
+                    background-color: {colors['border']};
+                    color: white;
+                    border: 1px solid {colors['border']};
+                    border-radius: 14px;
+                    padding: 6px 14px;
+                    font-size: 12px;
+                    font-weight: 600;
+                }}
+            """
+        else:
+            style = f"""
+                QPushButton {{
+                    background-color: #ffffff;
+                    color: {colors['text']};
+                    border: 1px solid {colors['border']};
+                    border-radius: 14px;
+                    padding: 6px 14px;
+                    font-size: 12px;
+                    font-weight: 600;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors['bg']};
+                }}
+            """
+        button.setStyleSheet(style)
+
     def make_card(self, title_text):
         card = QFrame()
         card.setObjectName("card")
@@ -155,11 +187,17 @@ class MainWindow(QMainWindow):
             level_item = QTableWidgetItem(entry.level)
             text_item = QTableWidgetItem(entry.message)
 
-            color = ROW_COLORS.get(entry.level)
-            if color:
-                line_item.setBackground(color)
-                level_item.setBackground(color)
-                text_item.setBackground(color)
+            colors = get_category_color(entry.level)
+            tint = ROW_TINT.get(entry.level)
+            if tint:
+                line_item.setBackground(tint)
+                text_item.setBackground(tint)
+
+            level_item.setBackground(QColor(colors["bg"]))
+            level_item.setForeground(QColor(colors["text"]))
+            bold_font = level_item.font()
+            bold_font.setBold(True)
+            level_item.setFont(bold_font)
 
             self.table.setItem(row, 0, line_item)
             self.table.setItem(row, 1, level_item)
@@ -174,7 +212,9 @@ class MainWindow(QMainWindow):
             self.active_filter = category
 
         for name, button in self.filter_buttons.items():
-            button.setChecked(name == self.active_filter)
+            is_active = name == self.active_filter
+            button.setChecked(is_active)
+            self.style_filter_button(button, name, active=is_active)
 
         self.apply_filter()
 
