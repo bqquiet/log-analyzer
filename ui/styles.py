@@ -158,6 +158,15 @@ QSplitter::handle {
     height: 14px;
 }
 
+QLabel#toastLabel {
+    background-color: #2c3e50;
+    color: white;
+    border-radius: 18px;
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
 QMenu {
     background-color: white;
     border: 1px solid #dde3e8;

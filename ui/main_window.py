@@ -1,10 +1,11 @@
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QPushButton, QLabel, QFileDialog, QMessageBox,
-    QFrame, QSplitter, QMenu, QApplication, QAbstractItemView
+    QFrame, QSplitter, QMenu, QApplication, QAbstractItemView,
+    QGraphicsOpacityEffect
 )
 from PyQt5.QtGui import QColor
-from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtCore import Qt, QEvent, QPropertyAnimation, QTimer
 
 from models.log_analyzer import LogAnalyzer
 from storage.file_storage import FileStorage
@@ -122,6 +123,14 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
+        self.toast_label = QLabel("", self)
+        self.toast_label.setObjectName("toastLabel")
+        self.toast_label.setAlignment(Qt.AlignCenter)
+        self.toast_opacity = QGraphicsOpacityEffect(self.toast_label)
+        self.toast_label.setGraphicsEffect(self.toast_opacity)
+        self.toast_opacity.setOpacity(0)
+        self.toast_label.hide()
+
     def make_card(self, title_text):
         card = QFrame()
         card.setObjectName("card")
@@ -212,6 +221,33 @@ class MainWindow(QMainWindow):
             item = self.table.item(row, column)
             values.append(item.text() if item else "")
         QApplication.clipboard().setText("  |  ".join(values))
+        self.show_toast("Скопійовано")
+
+    def show_toast(self, message):
+        self.toast_label.setText(message)
+        self.toast_label.adjustSize()
+
+        x = (self.width() - self.toast_label.width()) // 2
+        y = self.height() - self.toast_label.height() - 36
+        self.toast_label.move(x, y)
+        self.toast_label.show()
+        self.toast_label.raise_()
+
+        self.fade_in = QPropertyAnimation(self.toast_opacity, b"opacity")
+        self.fade_in.setDuration(180)
+        self.fade_in.setStartValue(0)
+        self.fade_in.setEndValue(1)
+        self.fade_in.start()
+
+        QTimer.singleShot(1300, self.fade_out_toast)
+
+    def fade_out_toast(self):
+        self.fade_out = QPropertyAnimation(self.toast_opacity, b"opacity")
+        self.fade_out.setDuration(350)
+        self.fade_out.setStartValue(1)
+        self.fade_out.setEndValue(0)
+        self.fade_out.finished.connect(self.toast_label.hide)
+        self.fade_out.start()
 
     def show_table_context_menu(self, position):
         row = self.table.rowAt(position.y())
