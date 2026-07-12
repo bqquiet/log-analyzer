@@ -156,6 +156,25 @@ QLabel#toastLabel {
     font-weight: 600;
 }
 
+QProgressBar {
+    border: none;
+    border-radius: 9px;
+    background-color: #eef1f4;
+    height: 18px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+QProgressBar::chunk {
+    border-radius: 9px;
+    background-color: qlineargradient(
+        x1: 0, y1: 0, x2: 1, y2: 0,
+        stop: 0 #2e86de, stop: 1 #6ab7ff
+    );
+}
+
 QMenu {
     background-color: white;
     border: 1px solid #dde3e8;

@@ -7,7 +7,6 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt, QEvent, QPropertyAnimation, QTimer
 
-from models.log_analyzer import LogAnalyzer
 from storage.file_storage import FileStorage
 from ui.chart_widget import StatsChartWidget
 from ui.copy_button import CopyButton
@@ -23,7 +22,7 @@ ROW_TINT = {
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, file_path, patterns):
+    def __init__(self, analyzer):
         super().__init__()
         self.setWindowTitle("Аналізатор лог-файлів — результати")
         self.resize(920, 760)
@@ -34,9 +33,7 @@ class MainWindow(QMainWindow):
         self.filter_buttons = {}
         self.hover_row = -1
 
-        self.analyzer = LogAnalyzer()
-        self.analyzer.load_file(file_path)
-        self.analyzer.analyze(patterns)
+        self.analyzer = analyzer
 
         self.build_ui()
         self.fill_table()
@@ -178,6 +175,7 @@ class MainWindow(QMainWindow):
 
     def fill_table(self):
         entries = self.analyzer.get_entries()
+
         self.table.setSortingEnabled(False)
         self.table.setRowCount(len(entries))
 

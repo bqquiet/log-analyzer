@@ -1,11 +1,13 @@
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLineEdit,
-    QCheckBox, QLabel, QFileDialog, QMessageBox, QFrame
+    QCheckBox, QLabel, QFileDialog, QMessageBox, QFrame, QStackedWidget,
+    QProgressBar, QWidget
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 from ui.styles import STYLE
 from ui.colors import get_category_color
+from ui.analysis_worker import AnalysisWorker
 
 
 class StartWindow(QDialog):
@@ -13,17 +15,29 @@ class StartWindow(QDialog):
         super().__init__()
         self.setWindowTitle("Аналізатор лог-файлів — вибір файлу")
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.resize(520, 420)
+        self.resize(520, 440)
         self.setAcceptDrops(True)
 
         self.file_path = None
         self.main_window = None
+        self.worker = None
 
         self.build_ui()
         self.setStyleSheet(STYLE)
 
     def build_ui(self):
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.stack = QStackedWidget()
+        outer_layout.addWidget(self.stack)
+
+        self.stack.addWidget(self.build_form_page())
+        self.stack.addWidget(self.build_progress_page())
+
+    def build_form_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
@@ -77,7 +91,7 @@ class StartWindow(QDialog):
         divider.setStyleSheet("color: #eceff1;")
         pattern_layout.addWidget(divider)
 
-        custom_label = QLabel("Власний регулярний вираз (необов'язково)")
+        custom_label = QLabel("Власний регулярний вираз")
         custom_label.setStyleSheet("font-weight: 600; font-size: 12px;")
         pattern_layout.addWidget(custom_label)
 
@@ -91,6 +105,48 @@ class StartWindow(QDialog):
         start_button = QPushButton("Аналізувати")
         start_button.clicked.connect(self.start_clicked)
         layout.addWidget(start_button)
+
+        return page
+
+    def build_progress_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(6)
+
+        icon_label = QLabel("🔍")
+        icon_label.setAlignment(Qt.AlignCenter)
+        icon_label.setStyleSheet("font-size: 40px;")
+        layout.addWidget(icon_label)
+        layout.addSpacing(12)
+
+        title = QLabel("Аналізуємо файл")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #2c3e50;")
+        layout.addWidget(title)
+
+        self.progress_status_label = QLabel("Читання файлу...")
+        self.progress_status_label.setAlignment(Qt.AlignCenter)
+        self.progress_status_label.setStyleSheet("color: #607d8b; font-size: 12px;")
+        layout.addWidget(self.progress_status_label)
+        layout.addSpacing(18)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setFormat("%p%")
+        self.progress_bar.setFixedWidth(320)
+        layout.addWidget(self.progress_bar, alignment=Qt.AlignCenter)
+        layout.addSpacing(14)
+
+        hint = QLabel("Великі файли можуть аналізуватись кілька секунд")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #b0bec5; font-size: 11px;")
+        layout.addWidget(hint)
+
+        return page
 
     def make_category_checkbox(self, category):
         colors = get_category_color(category)
@@ -156,13 +212,27 @@ class StartWindow(QDialog):
             QMessageBox.warning(self, "Помилка", "Оберіть хоча б один патерн пошуку.")
             return
 
+        self.progress_bar.setValue(0)
+        self.progress_status_label.setText("Читання файлу...")
+        self.stack.setCurrentIndex(1)
+
+        self.worker = AnalysisWorker(self.file_path, patterns)
+        self.worker.progress_changed.connect(self.on_progress_changed)
+        self.worker.finished_successfully.connect(self.on_analysis_finished)
+        self.worker.failed.connect(self.on_analysis_failed)
+        self.worker.start()
+
+    def on_progress_changed(self, percent, status_text):
+        self.progress_bar.setValue(percent)
+        self.progress_status_label.setText(status_text)
+
+    def on_analysis_finished(self, analyzer):
         from ui.main_window import MainWindow
 
-        try:
-            self.main_window = MainWindow(self.file_path, patterns)
-        except Exception as error:
-            QMessageBox.critical(self, "Помилка аналізу", str(error))
-            return
-
+        self.main_window = MainWindow(analyzer)
         self.main_window.show()
         self.close()
+
+    def on_analysis_failed(self, message):
+        self.stack.setCurrentIndex(0)
+        QMessageBox.critical(self, "Помилка аналізу", message)
