@@ -1,3 +1,4 @@
+import os
 import re
 from collections import Counter
 
@@ -18,15 +19,33 @@ class LogAnalyzer:
         self.stats = {}
         self.source_file = None
 
-    def load_file(self, path):
+    def load_file(self, path, progress_callback=None):
+        total_size = os.path.getsize(path)
+        self.lines = []
+        line_count = 0
+
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            self.lines = f.readlines()
+            for line in f:
+                self.lines.append(line)
+                line_count += 1
+
+                if progress_callback and line_count % 5000 == 0:
+                    try:
+                        position = f.tell()
+                    except OSError:
+                        position = 0
+                    percent = int(position / total_size * 100) if total_size else 0
+                    progress_callback(min(percent, 100))
+
         self.source_file = path
+
+        if progress_callback:
+            progress_callback(100)
 
         if not self.lines:
             raise ValueError("Файл порожній — немає рядків для аналізу.")
 
-    def analyze(self, patterns=None):
+    def analyze(self, patterns=None, progress_callback=None):
         if not self.lines:
             raise ValueError("Спочатку викличте load_file().")
 
@@ -34,6 +53,9 @@ class LogAnalyzer:
         compiled = {name: re.compile(pat, re.IGNORECASE) for name, pat in patterns.items()}
 
         self.entries = []
+        total = len(self.lines)
+        report_every = max(1, total // 100)
+
         for idx, line in enumerate(self.lines, start=1):
             for level, regex in compiled.items():
                 if regex.search(line):
@@ -46,6 +68,12 @@ class LogAnalyzer:
                         )
                     )
                     break
+
+            if progress_callback and idx % report_every == 0:
+                progress_callback(int(idx / total * 100))
+
+        if progress_callback:
+            progress_callback(100)
 
         self.stats = dict(Counter(e.level for e in self.entries))
 
