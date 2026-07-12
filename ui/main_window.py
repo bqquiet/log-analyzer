@@ -217,14 +217,22 @@ class MainWindow(QMainWindow):
         self.apply_filter()
 
     def apply_filter(self):
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.table.setUpdatesEnabled(False)
+        self.table.setSortingEnabled(False)
+
         for row in range(self.table.rowCount()):
             level_item = self.table.item(row, 1)
             if level_item is None:
                 continue
-            if self.active_filter is None or level_item.text() == self.active_filter:
-                self.table.setRowHidden(row, False)
-            else:
-                self.table.setRowHidden(row, True)
+            should_hide = (
+                self.active_filter is not None and level_item.text() != self.active_filter
+            )
+            self.table.setRowHidden(row, should_hide)
+
+        self.table.setSortingEnabled(True)
+        self.table.setUpdatesEnabled(True)
+        QApplication.restoreOverrideCursor()
 
     def on_cell_entered(self, row, column):
         if self.table.isRowHidden(row):
