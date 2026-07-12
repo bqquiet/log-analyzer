@@ -328,7 +328,7 @@ class MainWindow(QMainWindow):
             return
         try:
             FileStorage.write_json_report(path, self.analyzer.to_report_dict())
-            QMessageBox.information(self, "Готово", f"Звіт збережено: {path}")
+            self.show_toast("Звіт збережено")
         except OSError as error:
             QMessageBox.critical(self, "Помилка", f"Не вдалося зберегти файл: {error}")
 
@@ -338,6 +338,6 @@ class MainWindow(QMainWindow):
             return
         try:
             FileStorage.write_txt_report(path, self.analyzer.to_report_dict())
-            QMessageBox.information(self, "Готово", f"Звіт збережено: {path}")
+            self.show_toast("Звіт збережено")
         except OSError as error:
             QMessageBox.critical(self, "Помилка", f"Не вдалося зберегти файл: {error}")
