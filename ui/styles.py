@@ -156,6 +156,24 @@ QLabel#toastLabel {
     font-weight: 600;
 }
 
+QLabel#toastWarning {
+    background-color: #e67e22;
+    color: white;
+    border-radius: 18px;
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QLabel#toastError {
+    background-color: #c0392b;
+    color: white;
+    border-radius: 18px;
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
 QProgressBar {
     border: none;
     border-radius: 9px;

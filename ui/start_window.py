@@ -1,10 +1,9 @@
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLineEdit,
-    QCheckBox, QLabel, QFileDialog, QMessageBox, QFrame, QStackedWidget,
-    QProgressBar, QWidget
+    QCheckBox, QLabel, QFileDialog, QFrame, QStackedWidget,
+    QProgressBar, QWidget, QGraphicsOpacityEffect
 )
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QPropertyAnimation, QTimer
 from ui.styles import STYLE
 from ui.colors import get_category_color
 from ui.analysis_worker import AnalysisWorker
@@ -34,6 +33,45 @@ class StartWindow(QDialog):
 
         self.stack.addWidget(self.build_form_page())
         self.stack.addWidget(self.build_progress_page())
+
+        self.toast_label = QLabel("", self)
+        self.toast_label.setObjectName("toastWarning")
+        self.toast_label.setAlignment(Qt.AlignCenter)
+        self.toast_opacity = QGraphicsOpacityEffect(self.toast_label)
+        self.toast_label.setGraphicsEffect(self.toast_opacity)
+        self.toast_opacity.setOpacity(0)
+        self.toast_label.hide()
+
+    def show_toast(self, message, duration=1800, error=False):
+        self.toast_label.setObjectName("toastError" if error else "toastWarning")
+        self.toast_label.style().unpolish(self.toast_label)
+        self.toast_label.style().polish(self.toast_label)
+        self.toast_label.setText(message)
+        self.toast_label.setWordWrap(True)
+        self.toast_label.adjustSize()
+
+        button_top_left = self.start_button.mapTo(self, self.start_button.rect().topLeft())
+        x = (self.width() - self.toast_label.width()) // 2
+        y = button_top_left.y() - self.toast_label.height() - 12
+        self.toast_label.move(x, y)
+        self.toast_label.show()
+        self.toast_label.raise_()
+
+        self.fade_in = QPropertyAnimation(self.toast_opacity, b"opacity")
+        self.fade_in.setDuration(180)
+        self.fade_in.setStartValue(0)
+        self.fade_in.setEndValue(1)
+        self.fade_in.start()
+
+        QTimer.singleShot(duration, self.fade_out_toast)
+
+    def fade_out_toast(self):
+        self.fade_out = QPropertyAnimation(self.toast_opacity, b"opacity")
+        self.fade_out.setDuration(350)
+        self.fade_out.setStartValue(1)
+        self.fade_out.setEndValue(0)
+        self.fade_out.finished.connect(self.toast_label.hide)
+        self.fade_out.start()
 
     def build_form_page(self):
         page = QWidget()
@@ -86,25 +124,11 @@ class StartWindow(QDialog):
         grid.addWidget(self.check_warning, 1, 1)
         pattern_layout.addLayout(grid)
 
-        divider = QFrame()
-        divider.setFrameShape(QFrame.HLine)
-        divider.setStyleSheet("color: #eceff1;")
-        pattern_layout.addWidget(divider)
-
-        custom_label = QLabel("Власний регулярний вираз")
-        custom_label.setStyleSheet("font-weight: 600; font-size: 12px;")
-        pattern_layout.addWidget(custom_label)
-
-        self.custom_field = QLineEdit()
-        self.custom_field.setPlaceholderText("напр. timeout|refused")
-        self.custom_field.setFont(QFont("Consolas", 10))
-        pattern_layout.addWidget(self.custom_field)
-
         layout.addWidget(pattern_card)
 
-        start_button = QPushButton("Аналізувати")
-        start_button.clicked.connect(self.start_clicked)
-        layout.addWidget(start_button)
+        self.start_button = QPushButton("Аналізувати")
+        self.start_button.clicked.connect(self.start_clicked)
+        layout.addWidget(self.start_button)
 
         return page
 
@@ -196,20 +220,16 @@ class StartWindow(QDialog):
         if self.check_warning.isChecked():
             patterns["Warning"] = r"\bwarning\b"
 
-        custom = self.custom_field.text().strip()
-        if custom:
-            patterns["Custom"] = custom
-
         return patterns
 
     def start_clicked(self):
         if not self.file_path:
-            QMessageBox.warning(self, "Помилка", "Спочатку оберіть лог-файл.")
+            self.show_toast("Спочатку оберіть лог-файл")
             return
 
         patterns = self.get_patterns()
         if not patterns:
-            QMessageBox.warning(self, "Помилка", "Оберіть хоча б один патерн пошуку.")
+            self.show_toast("Оберіть хоча б один патерн пошуку")
             return
 
         self.progress_bar.setValue(0)
@@ -235,4 +255,4 @@ class StartWindow(QDialog):
 
     def on_analysis_failed(self, message):
         self.stack.setCurrentIndex(0)
-        QMessageBox.critical(self, "Помилка аналізу", message)
+        self.show_toast(message, duration=3500, error=True)
